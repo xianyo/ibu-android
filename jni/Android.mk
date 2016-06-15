@@ -134,5 +134,6 @@ LOCAL_EXPORT_LDFLAGS += -Wl,--no-warn-mismatch
 endif
 endif
 
-include $(BUILD_STATIC_LIBRARY)
+include $(BUILD_SHARED_LIBRARY)
+#include $(BUILD_STATIC_LIBRARY)
 

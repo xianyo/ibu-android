@@ -25,7 +25,7 @@ static size_t sizeof_type[U_ARRAY_TYPE_MAX + 1] =
 {
     0,                              /* U_ARRAY_TYPE_UNSET  = 0          */
 #ifdef HAVE__BOOL
-    sizeof(_Bool),                  /* U_ARRAY_TYPE_BOOL                */
+    sizeof(bool),                  /* U_ARRAY_TYPE_BOOL                */
 #endif  /* HAVE__BOOL */
     sizeof(char),                   /* U_ARRAY_TYPE_CHAR                */
     sizeof(unsigned char),          /* U_ARRAY_TYPE_U_CHAR              */
@@ -286,7 +286,7 @@ U_ARRAY_GETSET_F(_float, U_ARRAY_TYPE_FLOAT, float)
 U_ARRAY_GETSET_F(_double, U_ARRAY_TYPE_DOUBLE, double)
 
 #ifdef HAVE__BOOL
-U_ARRAY_GETSET_F(_bool, U_ARRAY_TYPE_BOOL, _Bool)
+U_ARRAY_GETSET_F(_bool, U_ARRAY_TYPE_BOOL, bool)
 #endif  /* HAVE__BOOL */
 
 #ifdef HAVE_LONG_LONG
