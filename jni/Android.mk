@@ -120,6 +120,7 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/include/u \
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_EXPORT_LDLIBS := -llog -landroid
+LOCAL_LDLIBS := -llog 
 
 #hard-fp setting
 ifneq ($(filter %armeabi-v7a,$(TARGET_ARCH_ABI)),)

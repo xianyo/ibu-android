@@ -25,6 +25,9 @@
 #undef OS_LINUX
 #define OS_LINUX 1
 
+#undef OS_ANDROID
+#define OS_ANDROID 1
+
 #undef HAVE_LONG_DOUBLE
 #define HAVE_LONG_DOUBLE 1
 

@@ -16,6 +16,10 @@
 #include <u/missing.h>
 #include <missing/syslog.h>
 
+#ifdef OS_ANDROID
+#include <android/log.h>
+#endif
+
 /* applications that use libu will defined their own "int facility" variable */
 extern int facility;
 
@@ -40,6 +44,14 @@ enum { STRERR_BUFSZ = 128, ERRMSG_BUFSZ = 256 };
 #define save_errno(var) var = errno;
 #define restore_errno(var) errno = var;
 #endif
+
+char *u_get_filename(char *p)
+{
+    char ch = '/';
+    char *q = strrchr(p,ch) + 1;
+ 
+    return q;
+}
 
 int u_log_set_lock(u_log_lock_t f, void *arg)
 {
@@ -227,6 +239,168 @@ err:
     restore_errno(savederr);
     return ~0;
 }
+
+#ifdef OS_ANDROID
+
+static inline const int u_log_label_android(int lev)
+{
+    switch(lev)
+    {
+    case LOG_DEBUG:  
+        return ANDROID_LOG_DEBUG; 
+    case LOG_INFO:   
+        return ANDROID_LOG_INFO; 
+    case LOG_NOTICE: 
+        return ANDROID_LOG_VERBOSE; 
+    case LOG_WARNING:
+        return ANDROID_LOG_WARN;
+    case LOG_ERR:    
+        return ANDROID_LOG_ERROR;
+    case LOG_CRIT:   
+        return ANDROID_LOG_FATAL;
+    case LOG_ALERT:   
+        return ANDROID_LOG_ERROR;
+    case LOG_EMERG:   
+        return ANDROID_LOG_ERROR;
+    default: 
+        return ANDROID_LOG_UNKNOWN;
+    }
+}
+
+static int u_log_android(int fac, int level, const char *tag, int debug, const char *fmt, ...)
+{
+    va_list ap;
+    char buf[U_MAX_LOG_LENGTH];
+
+    va_start(ap, fmt); 
+
+    u_log_lock();
+
+    if(hook)
+    {
+        if(vsnprintf(buf, U_MAX_LOG_LENGTH, fmt, ap) > U_MAX_LOG_LENGTH)
+        {
+            va_end(ap);
+            u_log_unlock();
+            return ~0; /* buffer too small */
+        }
+        buf[U_MAX_LOG_LENGTH - 1] = 0; 
+        hook(hook_arg, level, buf);
+    } else 
+        __android_log_vprint(u_log_label_android(level), tag, fmt, ap);
+
+    u_log_unlock();
+
+    va_end(ap);
+
+    return 0;
+}
+
+int u_log_write_ex_android(const char *tag_pre,const char *tag, int debug, int fac, int lev, int flags, int err, char* file, 
+    int line, const char *func, const char* fmt, ...)
+{
+    va_list ap;
+    err_type savederr;
+    int rc;
+    char msg[U_MAX_LOG_LENGTH], strerr[STRERR_BUFSZ], errmsg[STRERR_BUFSZ],logtag[STRERR_BUFSZ];
+
+    save_errno(savederr);
+
+    /* build the message to send to the log system */
+    va_start(ap, fmt); 
+    rc = vsnprintf(msg, U_MAX_LOG_LENGTH, fmt, ap);
+    va_end(ap);
+
+    if(rc >= U_MAX_LOG_LENGTH)
+        goto err; /* message too long */
+
+    /* init empty strings */
+    errmsg[0] = strerr[0] = 0;
+
+    if(err)
+    {
+        u_strerror_r(err, strerr, sizeof(strerr));
+        snprintf(errmsg, sizeof(errmsg), "[errno: %d, %s]", err, strerr);
+        errmsg[sizeof(errmsg) - 1] = 0; /* paranoid set */
+    } 
+
+    memset(logtag,0,STRERR_BUFSZ);
+    if(strcmp(tag,"NULL")==0){
+        strcpy(logtag,tag_pre);
+        strcat(logtag,u_get_filename(file));
+    }else{
+        strcpy(logtag,tag_pre);
+        strcat(logtag,tag);
+    }
+    /* ok, send the msg to the logger */
+    u_log_android(fac, lev, logtag, debug, "[%d][%s:%d] %s %s", getpid(), u_get_filename(file), line, msg, errmsg);
+
+
+    restore_errno(savederr);
+    return 0;
+err:
+    restore_errno(savederr);
+    return ~0;
+}
+
+int u_console_write_ex_android(const char *tag_pre,const char *tag, int debug, int printf_log, int err, char* file, int line, 
+    const char *func, const char* fmt, ...)
+{
+    err_type savederr;
+    va_list ap;
+    int rc;
+    char msg[U_MAX_LOG_LENGTH], strerr[STRERR_BUFSZ], errmsg[STRERR_BUFSZ],logtag[STRERR_BUFSZ];;
+
+    /* when writing to console the following parameters are not used */
+    file = NULL, line = 0, func = NULL;
+
+    save_errno(savederr);
+
+    /* build the message to send to the log system */
+    va_start(ap, fmt); 
+
+    rc = vsnprintf(msg, U_MAX_LOG_LENGTH, fmt, ap);
+
+    va_end(ap);
+
+    if(rc >= U_MAX_LOG_LENGTH)
+        goto err; /* message too long */
+
+    /* init empty strings */
+    errmsg[0] = strerr[0] = 0;
+
+    if(err)
+    {
+        u_strerror_r(err, strerr, sizeof(strerr));
+        snprintf(errmsg, sizeof(errmsg), "[errno: %d, %s]", err, strerr);
+        errmsg[sizeof(errmsg) - 1] = 0; /* paranoid set */
+    } 
+
+    memset(logtag,0,STRERR_BUFSZ);
+    if(strcmp(tag,"NULL")==0){
+        strcpy(logtag,tag_pre);
+        strcat(logtag,u_get_filename(file));
+    }else{
+        strcpy(logtag,tag_pre);
+        strcat(logtag,tag);
+    }
+
+    /* ok, send the msg to the logger */
+    if(printf_log){
+        u_log_android(LOG_LOCAL0, LOG_DEBUG, logtag, debug, "[%d][%s:%d] %s %s", getpid(), u_get_filename(file), line, msg, errmsg);
+    }else{
+        printf("[%s][%d][%s:%d] %s %s", logtag, getpid(), u_get_filename(file), line, msg, errmsg);
+    }
+
+
+    restore_errno(savederr);
+    return 0;
+err:
+    restore_errno(savederr);
+    return ~0;
+}
+
+#endif
 
 int u_strerror_r(int en, char *msg, size_t sz)
 {
