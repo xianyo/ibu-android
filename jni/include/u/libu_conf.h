@@ -157,7 +157,7 @@
 #define HAVE_FORK 1
 
 #undef HAVE_WAIT3
-#define HAVE_WAIT3 1
+//#define HAVE_WAIT3 1
 
 #undef HAVE_WAIT
 #define HAVE_WAIT 1
